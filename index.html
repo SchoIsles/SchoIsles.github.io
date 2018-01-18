@@ -9,7 +9,7 @@
 <meta property="og:title" content="SchoIsles">
 <meta property="og:url" content="http://blog.ziruqiren.com/index.html">
 <meta property="og:site_name" content="SchoIsles">
-<meta property="og:locale" content="zh">
+<meta property="og:locale" content="zh-CN">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="SchoIsles">
     
@@ -56,10 +56,6 @@
                 
                     <a class="main-nav-link" href="/.">Home</a>
                 
-                    <a class="main-nav-link" href="/archives">Archives</a>
-                
-                    <a class="main-nav-link" href="/categories">Categories</a>
-                
                     <a class="main-nav-link" href="/tags">Tags</a>
                 
                     <a class="main-nav-link" href="/about">About</a>
@@ -79,14 +75,14 @@
             <div id="search-form-wrap">
 
     <form class="search-form">
-        <input type="text" class="ins-search-input search-form-input" placeholder="Search" />
+        <input type="text" class="ins-search-input search-form-input" placeholder="搜索" />
         <button type="submit" class="search-form-submit"></button>
     </form>
     <div class="ins-search">
     <div class="ins-search-mask"></div>
     <div class="ins-search-container">
         <div class="ins-input-wrapper">
-            <input type="text" class="ins-search-input" placeholder="Type something..." />
+            <input type="text" class="ins-search-input" placeholder="想要查找什么..." />
             <span class="ins-close ins-selectable"><i class="fa fa-times-circle"></i></span>
         </div>
         <div class="ins-section-wrapper">
@@ -98,11 +94,11 @@
 (function (window) {
     var INSIGHT_CONFIG = {
         TRANSLATION: {
-            POSTS: 'Posts',
-            PAGES: 'Pages',
-            CATEGORIES: 'Categories',
-            TAGS: 'Tags',
-            UNTITLED: '(Untitled)',
+            POSTS: '文章',
+            PAGES: '页面',
+            CATEGORIES: '分类',
+            TAGS: '标签',
+            UNTITLED: '(未命名)',
         },
         ROOT_URL: '/',
         CONTENT_URL: '/content.json',
@@ -121,10 +117,6 @@
                 
                     <td><a class="main-nav-link" href="/.">Home</a></td>
                 
-                    <td><a class="main-nav-link" href="/archives">Archives</a></td>
-                
-                    <td><a class="main-nav-link" href="/categories">Categories</a></td>
-                
                     <td><a class="main-nav-link" href="/tags">Tags</a></td>
                 
                     <td><a class="main-nav-link" href="/about">About</a></td>
@@ -132,7 +124,7 @@
                 <td>
                     
     <div class="search-form">
-        <input type="text" class="ins-search-input search-form-input" placeholder="Search" />
+        <input type="text" class="ins-search-input search-form-input" placeholder="搜索" />
     </div>
 
                 </td>
@@ -156,11 +148,11 @@
         <div class="article-info profile-block">
             <div class="article-info-block">
                 1
-                <span>post</span>
+                <span>文章</span>
             </div>
             <div class="article-info-block">
-                0
-                <span>tag</span>
+                1
+                <span>标签</span>
             </div>
         </div>
         
@@ -191,7 +183,7 @@
 
             
             <section id="main">
-    <article id="post-hello-world" class="article article-type-post" itemscope itemprop="blogPost">
+    <article id="post-kubernetes-app-graceful-update" class="article article-type-post" itemscope itemprop="blogPost">
     <div class="article-inner">
         
         
@@ -199,7 +191,7 @@
                 
     
         <h1 itemprop="name">
-            <a class="article-title" href="/Index/hello-world/">Hello World</a>
+            <a class="article-title" href="/Kubernetes/kubernetes-app-graceful-update/">kubernetes 业务平滑升级</a>
         </h1>
     
 
@@ -208,8 +200,8 @@
                         
     <div class="article-date">
         <i class="fa fa-calendar"></i>
-        <a href="/Index/hello-world/">
-            <time datetime="2017-11-08T06:53:30.000Z" itemprop="datePublished">2017-11-08</time>
+        <a href="/Kubernetes/kubernetes-app-graceful-update/">
+            <time datetime="2018-01-18T02:26:23.000Z" itemprop="datePublished">2018-01-18</time>
         </a>
     </div>
 
@@ -217,10 +209,15 @@
                         
     <div class="article-category">
     	<i class="fa fa-folder"></i>
-        <a class="article-category-link" href="/categories/Index/">Index</a>
+        <a class="article-category-link" href="/categories/Kubernetes/">Kubernetes</a>
     </div>
 
                         
+    <div class="article-tag">
+        <i class="fa fa-tag"></i>
+        <a class="tag-link" href="/tags/Kubernetes/">Kubernetes</a>
+    </div>
+
                     </div>
                 
             </header>
@@ -228,17 +225,30 @@
         
         <div class="article-entry" itemprop="articleBody">
         
-            
-            <p>Welcome to <a href="https://hexo.io/" target="_blank" rel="external">Hexo</a>! This is your very first post. Check <a href="https://hexo.io/docs/" target="_blank" rel="external">documentation</a> for more info. If you get any problems when using Hexo, you can find the answer in <a href="https://hexo.io/docs/troubleshooting.html" target="_blank" rel="external">troubleshooting</a> or you can ask me on <a href="https://github.com/hexojs/hexo/issues" target="_blank" rel="external">GitHub</a>.</p>
-<h2 id="Quick-Start"><a href="#Quick-Start" class="headerlink" title="Quick Start"></a>Quick Start</h2><h3 id="Create-a-new-post"><a href="#Create-a-new-post" class="headerlink" title="Create a new post"></a>Create a new post</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ hexo new <span class="string">"My New Post"</span></span><br></pre></td></tr></table></figure>
-<p>More info: <a href="https://hexo.io/docs/writing.html" target="_blank" rel="external">Writing</a></p>
-<h3 id="Run-server"><a href="#Run-server" class="headerlink" title="Run server"></a>Run server</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ hexo server</span><br></pre></td></tr></table></figure>
-<p>More info: <a href="https://hexo.io/docs/server.html" target="_blank" rel="external">Server</a></p>
-<h3 id="Generate-static-files"><a href="#Generate-static-files" class="headerlink" title="Generate static files"></a>Generate static files</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ hexo generate</span><br></pre></td></tr></table></figure>
-<p>More info: <a href="https://hexo.io/docs/generating.html" target="_blank" rel="external">Generating</a></p>
-<h3 id="Deploy-to-remote-sites"><a href="#Deploy-to-remote-sites" class="headerlink" title="Deploy to remote sites"></a>Deploy to remote sites</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ hexo deploy</span><br></pre></td></tr></table></figure>
-<p>More info: <a href="https://hexo.io/docs/deployment.html" target="_blank" rel="external">Deployment</a></p>
-
+            <p><p>Kubernetes 提供了 Deployment 来完成对应用的滚动升级，升级过程中，会先创建新版本的 replicaSet，初始复制个数设为 0，按一定比例增加新版本 replicaSet 的复制个数，成功后减小旧版本 replicaSet 的复制个数，此消彼长，直到新版本 replicaSet 的复制个数达到此 Deployment 设定值，旧版本 replicaSet 的复制个数变为0。</p>
+<p>Service 通过标签选择器同时选中新旧两个版本 replicaSet 里的 Pod，不断更新其 Endpoint 列表，从而保证向外暴露出的服务总是可用的。</p>
+<p>与此同时，如果 Pod 设置了健康检查项，将能够保证 Endpoint 列表的可靠性。通过 readiness 检查来决定是否要将节点从 Endpoint 列表移除或添加，而 liveness 检测会决定是否要重启此容器。</p>
+<p>回想一下传统的部署升级方式，最原始的是停止程序后更新代码再启动，优雅一些的则会在更新代码后派生出新的子进程来工作，更高级的还会在程序运行过程中动态更新模块，甚至更换自身二进制文件，有时候还需要预先在 LB 层下线节点，升级完成后再上线。</p>
+<p>这几种方式有着共同的目标    </p>
+<ol>
+<li>尽可能保证服务不中断    </li>
+<li>提供服务的实例，身份不改变（比如 ip:port）</li>
+</ol>
+<p>而在进入云时代，一切都变了。    </p>
+<ul>
+<li>不再原地重起实例，一个实例的状态只有启动和退出    </li>
+<li>实例是全新的，尤其是 IP，无论是以注册方式，还是 LB 反向代理方式来提供服务，实例的身份已经发生了变化，必须及时更新    </li>
+</ul>
+<p>因此引出两个需求：    </p>
+<ol>
+<li>实例退出时需优雅关闭</li>
+<li>LB 层需预先下线节点</li>
+</ol>
+<p>一些长连接类型的服务，一般支持在优雅退出的同时，让客户端重连其它节点，比如 <a href="http://dubbo.io/" target="_blank" rel="external">Dubbo</a>。<br>另外 Dubbo 是通过注册来实现动态服务发现的，服务之间相互调用是通过内部软负载均衡直连，不需要借助 Kubernetes 来实现。    </p>
+<p>其它一些服务，web 类型，自身只实现了优雅重启，并未考虑优雅退出，如 Python 的 Gunicorn， PHP 的 php-fpm，还有 uWSGI，在关闭时比较粗暴，不顾未完成的任务，直接关闭子进程。php-fpm 的介绍中虽然说能接收 SIGQUIT 来完成优雅关闭，但实测效果并不理想。</p></p>
+            <p class="article-more-link">
+                <a href="/Kubernetes/kubernetes-app-graceful-update/#more">查看更多</a>
+            </p>
         
         </div>
         <footer class="article-footer">
@@ -248,7 +258,7 @@
 
 </div>
 
-    <a data-url="http://blog.ziruqiren.com/Index/hello-world/" data-id="cjcjfhrki00009fnkhbkvwn2t" class="article-share-link"><i class="fa fa-share"></i>Share</a>
+    <a data-url="http://blog.ziruqiren.com/Kubernetes/kubernetes-app-graceful-update/" data-id="cjckhtop000014lnkld3ksyzf" class="article-share-link"><i class="fa fa-share"></i>分享到</a>
 <script>
     (function ($) {
         // Prevent duplicate binding
@@ -316,6 +326,8 @@
 
             
     
+        <a href="http://blog.ziruqiren.com/Kubernetes/kubernetes-app-graceful-update/#comments" class="article-comment-link disqus-comment-count" data-disqus-url="http://blog.ziruqiren.com/Kubernetes/kubernetes-app-graceful-update/">评论</a>
+    
 
         </footer>
     </div>
@@ -332,8 +344,33 @@
             Powered by <a href="http://hexo.io/" target="_blank">Hexo</a>. Theme by <a href="http://github.com/ppoffice">PPOffice</a>
         </div>
     </div>
+<script>
+var _hmt = _hmt || [];
+(function() {
+  var hm = document.createElement("script");
+  hm.src = "https://hm.baidu.com/hm.js?3b61426625c27dbdc352c0b9c37ea247";
+  var s = document.getElementsByTagName("script")[0]; 
+  s.parentNode.insertBefore(hm, s);
+})();
+</script>
 </footer>
+
         
+    
+    <script>
+    var disqus_config = function () {
+        
+        this.page.identifier = '';
+    };
+    (function() { 
+        var d = document, s = d.createElement('script');  
+        s.src = '//' + 'schoisles' + '.disqus.com/count.js';
+        s.setAttribute('data-timestamp', +new Date());
+        (d.head || d.body).appendChild(s);
+    })();
+</script>
+
+
 
 
     

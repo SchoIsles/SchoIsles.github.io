@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang=zh>
+<head>
+    <meta charset="utf-8">
+    
+    <title>kubernetes 业务平滑升级 | SchoIsles</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+    <meta name="description" content="Kubernetes 提供了 Deployment 来完成对应用的滚动升级，升级过程中，会先创建新版本的 replicaSet，初始复制个数设为 0，按一定比例增加新版本 replicaSet 的复制个数，成功后减小旧版本 replicaSet 的复制个数，此消彼长，直到新版本 replicaSet 的复制个数达到此 Deployment 设定值，旧版本 replicaSet 的复制个数变为0。">
+<meta name="keywords" content="Kubernetes">
+<meta property="og:type" content="article">
+<meta property="og:title" content="kubernetes 业务平滑升级">
+<meta property="og:url" content="http://blog.ziruqiren.com/Kubernetes/kubernetes-app-graceful-update/index.html">
+<meta property="og:site_name" content="SchoIsles">
+<meta property="og:description" content="Kubernetes 提供了 Deployment 来完成对应用的滚动升级，升级过程中，会先创建新版本的 replicaSet，初始复制个数设为 0，按一定比例增加新版本 replicaSet 的复制个数，成功后减小旧版本 replicaSet 的复制个数，此消彼长，直到新版本 replicaSet 的复制个数达到此 Deployment 设定值，旧版本 replicaSet 的复制个数变为0。">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2018-01-18T12:48:49.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="kubernetes 业务平滑升级">
+<meta name="twitter:description" content="Kubernetes 提供了 Deployment 来完成对应用的滚动升级，升级过程中，会先创建新版本的 replicaSet，初始复制个数设为 0，按一定比例增加新版本 replicaSet 的复制个数，成功后减小旧版本 replicaSet 的复制个数，此消彼长，直到新版本 replicaSet 的复制个数达到此 Deployment 设定值，旧版本 replicaSet 的复制个数变为0。">
+    
+
+    
+        <link rel="alternate" href="/" title="SchoIsles" type="application/atom+xml" />
+    
+
+    
+        <link rel="icon" href="/css/images/favicon.png" />
+    
+
+    <link rel="stylesheet" href="/libs/font-awesome/css/font-awesome.min.css">
+    <link rel="stylesheet" href="/libs/open-sans/styles.css">
+    <link rel="stylesheet" href="/libs/source-code-pro/styles.css">
+
+    <link rel="stylesheet" href="/css/style.css">
+
+    <script src="/libs/jquery/2.1.3/jquery.min.js"></script>
+    
+    
+        <link rel="stylesheet" href="/libs/lightgallery/css/lightgallery.min.css">
+    
+    
+        <link rel="stylesheet" href="/libs/justified-gallery/justifiedGallery.min.css">
+    
+    
+    
+    
+
+
+</head>
+
+<body>
+    <div id="container">
+        <header id="header">
+    <div id="header-main" class="header-inner">
+        <div class="outer">
+            <a href="/" id="logo">
+                <i class="logo"></i>
+                <span class="site-title">SchoIsles</span>
+            </a>
+            <nav id="main-nav">
+                
+                    <a class="main-nav-link" href="/.">Home</a>
+                
+                    <a class="main-nav-link" href="/tags">Tags</a>
+                
+                    <a class="main-nav-link" href="/about">About</a>
+                
+            </nav>
+            
+                
+                <nav id="sub-nav">
+                    <div class="profile" id="profile-nav">
+                        <a id="profile-anchor" href="javascript:;">
+                            <img class="avatar" src="/css/images/avatar.png" />
+                            <i class="fa fa-caret-down"></i>
+                        </a>
+                    </div>
+                </nav>
+            
+            <div id="search-form-wrap">
+
+    <form class="search-form">
+        <input type="text" class="ins-search-input search-form-input" placeholder="搜索" />
+        <button type="submit" class="search-form-submit"></button>
+    </form>
+    <div class="ins-search">
+    <div class="ins-search-mask"></div>
+    <div class="ins-search-container">
+        <div class="ins-input-wrapper">
+            <input type="text" class="ins-search-input" placeholder="想要查找什么..." />
+            <span class="ins-close ins-selectable"><i class="fa fa-times-circle"></i></span>
+        </div>
+        <div class="ins-section-wrapper">
+            <div class="ins-section-container"></div>
+        </div>
+    </div>
+</div>
+<script>
+(function (window) {
+    var INSIGHT_CONFIG = {
+        TRANSLATION: {
+            POSTS: '文章',
+            PAGES: '页面',
+            CATEGORIES: '分类',
+            TAGS: '标签',
+            UNTITLED: '(未命名)',
+        },
+        ROOT_URL: '/',
+        CONTENT_URL: '/content.json',
+    };
+    window.INSIGHT_CONFIG = INSIGHT_CONFIG;
+})(window);
+</script>
+<script src="/js/insight.js"></script>
+
+</div>
+        </div>
+    </div>
+    <div id="main-nav-mobile" class="header-sub header-inner">
+        <table class="menu outer">
+            <tr>
+                
+                    <td><a class="main-nav-link" href="/.">Home</a></td>
+                
+                    <td><a class="main-nav-link" href="/tags">Tags</a></td>
+                
+                    <td><a class="main-nav-link" href="/about">About</a></td>
+                
+                <td>
+                    
+    <div class="search-form">
+        <input type="text" class="ins-search-input search-form-input" placeholder="搜索" />
+    </div>
+
+                </td>
+            </tr>
+        </table>
+    </div>
+</header>
+
+        <div class="outer">
+            
+                
+
+<aside id="profile">
+    <div class="inner profile-inner">
+        <div class="base-info profile-block">
+            <img id="avatar" src="/css/images/avatar.png" />
+            <h2 id="name">SchoIsles</h2>
+            <h3 id="title">DevOps</h3>
+            <span id="location"><i class="fa fa-map-marker"></i>Beijing, China</span>
+        </div>
+        <div class="article-info profile-block">
+            <div class="article-info-block">
+                1
+                <span>文章</span>
+            </div>
+            <div class="article-info-block">
+                1
+                <span>标签</span>
+            </div>
+        </div>
+        
+        <div class="profile-block social-links">
+            <table>
+                <tr>
+                    
+                    
+                    <td>
+                        <a href="http://github.com/SchoIsles" target="_blank" title="github" class=tooltip>
+                            <i class="fa fa-github"></i>
+                        </a>
+                    </td>
+                    
+                    <td>
+                        <a href="/" target="_blank" title="rss" class=tooltip>
+                            <i class="fa fa-rss"></i>
+                        </a>
+                    </td>
+                    
+                </tr>
+            </table>
+        </div>
+        
+    </div>
+                
+</aside>
+
+            
+            <section id="main"><article id="post-kubernetes-app-graceful-update" class="article article-type-post" itemscope itemprop="blogPost">
+    <div class="article-inner">
+        
+        
+            <header class="article-header">
+                
+    
+        <h1 class="article-title" itemprop="name">
+            kubernetes 业务平滑升级
+        </h1>
+    
+
+                
+                    <div class="article-meta">
+                        
+    <div class="article-date">
+        <i class="fa fa-calendar"></i>
+        <a href="/Kubernetes/kubernetes-app-graceful-update/">
+            <time datetime="2018-01-18T02:26:23.000Z" itemprop="datePublished">2018-01-18</time>
+        </a>
+    </div>
+
+
+                        
+    <div class="article-category">
+    	<i class="fa fa-folder"></i>
+        <a class="article-category-link" href="/categories/Kubernetes/">Kubernetes</a>
+    </div>
+
+                        
+    <div class="article-tag">
+        <i class="fa fa-tag"></i>
+        <a class="tag-link" href="/tags/Kubernetes/">Kubernetes</a>
+    </div>
+
+                    </div>
+                
+            </header>
+        
+        
+        <div class="article-entry" itemprop="articleBody">
+        
+            
+            <p>Kubernetes 提供了 Deployment 来完成对应用的滚动升级，升级过程中，会先创建新版本的 replicaSet，初始复制个数设为 0，按一定比例增加新版本 replicaSet 的复制个数，成功后减小旧版本 replicaSet 的复制个数，此消彼长，直到新版本 replicaSet 的复制个数达到此 Deployment 设定值，旧版本 replicaSet 的复制个数变为0。</p>
+<p>Service 通过标签选择器同时选中新旧两个版本 replicaSet 里的 Pod，不断更新其 Endpoint 列表，从而保证向外暴露出的服务总是可用的。</p>
+<p>与此同时，如果 Pod 设置了健康检查项，将能够保证 Endpoint 列表的可靠性。通过 readiness 检查来决定是否要将节点从 Endpoint 列表移除或添加，而 liveness 检测会决定是否要重启此容器。</p>
+<p>回想一下传统的部署升级方式，最原始的是停止程序后更新代码再启动，优雅一些的则会在更新代码后派生出新的子进程来工作，更高级的还会在程序运行过程中动态更新模块，甚至更换自身二进制文件，有时候还需要预先在 LB 层下线节点，升级完成后再上线。</p>
+<p>这几种方式有着共同的目标    </p>
+<ol>
+<li>尽可能保证服务不中断    </li>
+<li>提供服务的实例，身份不改变（比如 ip:port）</li>
+</ol>
+<p>而在进入云时代，一切都变了。    </p>
+<ul>
+<li>不再原地重起实例，一个实例的状态只有启动和退出    </li>
+<li>实例是全新的，尤其是 IP，无论是以注册方式，还是 LB 反向代理方式来提供服务，实例的身份已经发生了变化，必须及时更新    </li>
+</ul>
+<p>因此引出两个需求：    </p>
+<ol>
+<li>实例退出时需优雅关闭</li>
+<li>LB 层需预先下线节点</li>
+</ol>
+<p>一些长连接类型的服务，一般支持在优雅退出的同时，让客户端重连其它节点，比如 <a href="http://dubbo.io/" target="_blank" rel="external">Dubbo</a>。<br>另外 Dubbo 是通过注册来实现动态服务发现的，服务之间相互调用是通过内部软负载均衡直连，不需要借助 Kubernetes 来实现。    </p>
+<p>其它一些服务，web 类型，自身只实现了优雅重启，并未考虑优雅退出，如 Python 的 Gunicorn， PHP 的 php-fpm，还有 uWSGI，在关闭时比较粗暴，不顾未完成的任务，直接关闭子进程。php-fpm 的介绍中虽然说能接收 SIGQUIT 来完成优雅关闭，但实测效果并不理想。</p>
+<a id="more"></a>
+<p>而 nginx 在这方面做的很好，它也是通过接收 SIGQUIT 信号来处理，但能保证在关闭过程中停止监听，不再接受新的请求，空闲子进程直接关闭，活动子进程在任务完成后再关闭。</p>
+<p>为了演示，下面我们创建一个 Django 项目，编写两个 View，一个快速返回，另一个延迟一段时间再返回<br>代码如下    </p>
+<p><strong>views.py</strong></p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> time</span><br><span class="line"><span class="keyword">from</span> django.views.generic <span class="keyword">import</span> View</span><br><span class="line"><span class="keyword">from</span> django.http.response <span class="keyword">import</span> HttpResponse</span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">NormalView</span><span class="params">(View)</span>:</span></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">get</span><span class="params">(self, request,  *args, **kwargs)</span>:</span></span><br><span class="line">        <span class="keyword">return</span> HttpResponse(<span class="string">"OK"</span>)</span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">SleepView</span><span class="params">(View)</span>:</span></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">get</span><span class="params">(self, request,  *args, **kwargs)</span>:</span></span><br><span class="line">        time.sleep(<span class="number">10</span>)</span><br><span class="line">        <span class="keyword">return</span> HttpResponse(<span class="string">"Sleep finished"</span>)</span><br></pre></td></tr></table></figure>
+<p><strong>urls.py</strong></p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">......</span><br><span class="line"></span><br><span class="line">urlpatterns = [</span><br><span class="line">    url(<span class="string">r'^$'</span>, NormalView.as_view()),</span><br><span class="line">    url(<span class="string">r'^sleep$'</span>, SleepView.as_view()),</span><br><span class="line">]</span><br></pre></td></tr></table></figure>
+<p>这样，我们得到了两个测试链接，当访问 / 时会立即响应，而当访问 /sleep 时会等待 10s 后才返回 </p>
+<p>无论是用 Django 内置 manager、Gunirorn、或是 uWSGI 来启动 webserver，在客户端使用 curl 请求 /sleep 链接时，使用 Control + C 中断，或是发送 SIGINT、SIGTERM、SIGQUIT 等信号，都会使 webserver 退出的同时，客户端 curl 中断。Gunicorn、uWSGI 只在平滑重启时才会关心旧的子进程是否有活动连接。</p>
+<p>而 nginx 在这方面做的很完善，支持收到 SIGQUIT 信号（kill -3）后平滑关闭，在此过程中 </p>
+<ol>
+<li>master 进程关闭了监听，并向所有子进程发送 SIGQUIT 信号</li>
+<li>关闭 idle 状态的连接</li>
+<li>等待 active 状态的连接关闭</li>
+<li>关闭空闲的子进程</li>
+<li>待所有子进程退出后，关闭 master 进程</li>
+</ol>
+<p>因此，在容器环境中，nginx 是用来保障容器退出时不中断业务的最佳方案，我们需要更改容器运行脚本，优化退出步骤，截断容器停止信号 SIGTERM，向 nginx 发送 SIGQUIT，10 次检查仍未完全关闭时，再强制杀掉 nginx， 测试 demo 脚本如下</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#!/bin/bash</span></span><br><span class="line"><span class="keyword">if</span> [ <span class="string">"<span class="variable">$1</span>"</span> == <span class="string">"bash"</span> ];<span class="keyword">then</span></span><br><span class="line">    <span class="built_in">exec</span> /bin/bash</span><br><span class="line"><span class="keyword">fi</span></span><br><span class="line"></span><br><span class="line">GUNICORN_PID=<span class="string">'/tmp/gunicorn.pid'</span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="title">graceful_exit</span></span>() &#123;</span><br><span class="line">    <span class="built_in">echo</span> <span class="string">"graceful stop nginx"</span></span><br><span class="line">    nginx -s quit</span><br><span class="line">    <span class="keyword">for</span> ((i=10;i--;i&gt;=0)) &#123;</span><br><span class="line">        pkill -0 nginx</span><br><span class="line">        <span class="keyword">if</span> [ $? -ne 0 ];<span class="keyword">then</span></span><br><span class="line">            <span class="built_in">break</span></span><br><span class="line">        <span class="keyword">else</span></span><br><span class="line">            <span class="built_in">echo</span> <span class="string">"Check nginx master is graceful exited. The number of remaining retries: <span class="variable">$i</span>"</span></span><br><span class="line">            sleep 1</span><br><span class="line">        <span class="keyword">fi</span></span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> [ <span class="variable">$i</span> -eq 1 ];<span class="keyword">then</span></span><br><span class="line">            <span class="built_in">echo</span> <span class="string">"kill nginx master"</span></span><br><span class="line">            pkill -9 nginx</span><br><span class="line">        <span class="keyword">fi</span></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="built_in">echo</span> <span class="string">"kill gunicorn"</span></span><br><span class="line">    <span class="built_in">kill</span> -2 `cat <span class="variable">$GUNICORN_PID</span>`</span><br><span class="line">    <span class="built_in">exit</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="built_in">trap</span> <span class="string">'echo "receive SIGINT";graceful_exit;exit'</span> SIGINT SIGTERM</span><br><span class="line"></span><br><span class="line">nginx -t &amp;&amp; nginx</span><br><span class="line">gunicorn p0.wsgi --daemon -b 127.0.0.1:8000 --pid <span class="variable">$GUNICORN_PID</span> --max-requests=5000 --workers=4 --<span class="built_in">log</span>-file - --access-logfile - --error-logfile -</span><br><span class="line"></span><br><span class="line">mkfifo /tmp/block</span><br><span class="line"><span class="built_in">exec</span> 3&lt;&gt; /tmp/block</span><br><span class="line"></span><br><span class="line"><span class="built_in">read</span> s &lt;&amp;3</span><br></pre></td></tr></table></figure>
+<p>这样一来，发起一个请求 <code>curl &lt;ip:port&gt;/sleep</code> 后， 向容器发送 <code>docker stop</code> 指令，<br>新的请求会失败，报 Connection refused，已发起的请求在 10s 内成功返回后，nginx 停掉了最后一个 worker，关闭主进程，容器退出。demo 里没有去管 Gunicorn 的关闭，而是让操作系统自行处理，生产环境中应该考虑的更严谨一些。    </p>
+<p>在完成了容器的优雅退出后，还要考虑另外一个问题，如果用了 ipvs 实现 L4 LB，在容器内服务关闭端口监听后，如果 Service 层未及时通知 ipvs 将该节点下线，必然会导致一部分请求继续发给此节点，而一般客户端没有做重连，将会直接返回网络失败，假如还配置了 TCP session affine，那某个用户就悲剧了。    </p>
+<p>因此，在关闭容器前，最好能先从节点列表里清除，而容器启动后，在健康检查确认后再加入列表。    </p>
+<p>需要知道的是，ipvs 去掉一个后端节点，并不会造成已建立的连接中断，所以，我们可以放心地通知 ipvs 删除此节点，与此同时，我们需要先在 ipvs 层删除此节点后，再真正地通知程序退出。    </p>
+<p>Service 是逻辑概念，现在已经有一些项目（如 kube-proxy、kube-router，traefik）通过 watch 集群中 Service、Pod、Endpoint 的变化来实现服务的动态发现。在实施过程中，是否能达到完美的平滑升级？</p>
+<p>在 Pod 的生命周期内，有着一系列的事件（event）发生，如创建、更新、删除，但这些事件具体发生在哪个时间点呢？比如：</p>
+<ol>
+<li>Pod 创建，是发生在创建前还是创建成功后，readiness 在何时检测成功将其加入 Endpoint 列表？   </li>
+<li>Pod 删除，是发生在删除指令发出后，还是 Pod 已经被删除，是否会跳过 readiness 直接将其移出 Endpoint 列表？    </li>
+</ol>
+<p>因此，在实际环境中使用前需要确认这些问题    </p>
+<ol>
+<li>Pod 生成时，发出了哪些事件，状态变化经历了哪些阶段，健康检查何时发生，Endpoint 何时添加 </li>
+<li>Pod 销毁时，发出了哪些事件，是否保证了停止过程中不会有新的请求过来，Endpoint 移除是健康检查的结果还是 Pod 销毁事件直接触发的    </li>
+<li>readiness检测成功后，Pod 状态发生了怎样的变化，Endpoint 的更新发生在什么时候，kube-dns的缓存如何更新？</li>
+</ol>
+
+        
+        </div>
+        <footer class="article-footer">
+            <div class="share-container">
+
+
+
+</div>
+
+    <a data-url="http://blog.ziruqiren.com/Kubernetes/kubernetes-app-graceful-update/" data-id="cjckhtop000014lnkld3ksyzf" class="article-share-link"><i class="fa fa-share"></i>分享到</a>
+<script>
+    (function ($) {
+        // Prevent duplicate binding
+        if (typeof(__SHARE_BUTTON_BINDED__) === 'undefined' || !__SHARE_BUTTON_BINDED__) {
+            __SHARE_BUTTON_BINDED__ = true;
+        } else {
+            return;
+        }
+        $('body').on('click', function() {
+            $('.article-share-box.on').removeClass('on');
+        }).on('click', '.article-share-link', function(e) {
+            e.stopPropagation();
+
+            var $this = $(this),
+                url = $this.attr('data-url'),
+                encodedUrl = encodeURIComponent(url),
+                id = 'article-share-box-' + $this.attr('data-id'),
+                offset = $this.offset(),
+                box;
+
+            if ($('#' + id).length) {
+                box = $('#' + id);
+
+                if (box.hasClass('on')){
+                    box.removeClass('on');
+                    return;
+                }
+            } else {
+                var html = [
+                    '<div id="' + id + '" class="article-share-box">',
+                        '<input class="article-share-input" value="' + url + '">',
+                        '<div class="article-share-links">',
+                            '<a href="https://twitter.com/intent/tweet?url=' + encodedUrl + '" class="fa fa-twitter article-share-twitter" target="_blank" title="Twitter"></a>',
+                            '<a href="https://www.facebook.com/sharer.php?u=' + encodedUrl + '" class="fa fa-facebook article-share-facebook" target="_blank" title="Facebook"></a>',
+                            '<a href="http://pinterest.com/pin/create/button/?url=' + encodedUrl + '" class="fa fa-pinterest article-share-pinterest" target="_blank" title="Pinterest"></a>',
+                            '<a href="https://plus.google.com/share?url=' + encodedUrl + '" class="fa fa-google article-share-google" target="_blank" title="Google+"></a>',
+                        '</div>',
+                    '</div>'
+                ].join('');
+
+              box = $(html);
+
+              $('body').append(box);
+            }
+
+            $('.article-share-box.on').hide();
+
+            box.css({
+                top: offset.top + 25,
+                left: offset.left
+            }).addClass('on');
+
+        }).on('click', '.article-share-box', function (e) {
+            e.stopPropagation();
+        }).on('click', '.article-share-box-input', function () {
+            $(this).select();
+        }).on('click', '.article-share-box-link', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            window.open(this.href, 'article-share-box-window-' + Date.now(), 'width=500,height=450');
+        });
+    })(jQuery);
+</script>
+
+            
+    
+        <a href="http://blog.ziruqiren.com/Kubernetes/kubernetes-app-graceful-update/#comments" class="article-comment-link disqus-comment-count" data-disqus-url="http://blog.ziruqiren.com/Kubernetes/kubernetes-app-graceful-update/">评论</a>
+    
+
+        </footer>
+    </div>
+    
+        
+
+    
+</article>
+
+
+    
+    
+        <section id="comments">
+    <div id="disqus_thread">
+        <noscript>Please enable JavaScript to view the <a href="//disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+    </div>
+</section>
+    
+
+</section>
+        </div>
+        <footer id="footer">
+    <div class="outer">
+        <div id="footer-info" class="inner">
+            &copy; 2018 SchoIsles<br>
+            Powered by <a href="http://hexo.io/" target="_blank">Hexo</a>. Theme by <a href="http://github.com/ppoffice">PPOffice</a>
+        </div>
+    </div>
+<script>
+var _hmt = _hmt || [];
+(function() {
+  var hm = document.createElement("script");
+  hm.src = "https://hm.baidu.com/hm.js?3b61426625c27dbdc352c0b9c37ea247";
+  var s = document.getElementsByTagName("script")[0]; 
+  s.parentNode.insertBefore(hm, s);
+})();
+</script>
+</footer>
+
+        
+    
+    <script>
+    var disqus_config = function () {
+        
+            this.page.url = 'http://blog.ziruqiren.com/Kubernetes/kubernetes-app-graceful-update/';
+        
+        this.page.identifier = 'kubernetes-app-graceful-update';
+    };
+    (function() { 
+        var d = document, s = d.createElement('script');  
+        s.src = '//' + 'schoisles' + '.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', +new Date());
+        (d.head || d.body).appendChild(s);
+    })();
+</script>
+
+
+
+
+    
+        <script src="/libs/lightgallery/js/lightgallery.min.js"></script>
+        <script src="/libs/lightgallery/js/lg-thumbnail.min.js"></script>
+        <script src="/libs/lightgallery/js/lg-pager.min.js"></script>
+        <script src="/libs/lightgallery/js/lg-autoplay.min.js"></script>
+        <script src="/libs/lightgallery/js/lg-fullscreen.min.js"></script>
+        <script src="/libs/lightgallery/js/lg-zoom.min.js"></script>
+        <script src="/libs/lightgallery/js/lg-hash.min.js"></script>
+        <script src="/libs/lightgallery/js/lg-share.min.js"></script>
+        <script src="/libs/lightgallery/js/lg-video.min.js"></script>
+    
+    
+        <script src="/libs/justified-gallery/jquery.justifiedGallery.min.js"></script>
+    
+    
+
+
+
+<!-- Custom Scripts -->
+<script src="/js/main.js"></script>
+
+    </div>
+</body>
+</html>
