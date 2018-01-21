@@ -117,6 +117,7 @@ body,
 }
 body {
   color: #565a5f;
+  background: #fafbfc;
   font: 14px "open sans", "Helvetica Neue", "Microsoft Yahei", Helvetica, Arial, sans-serif;
   -webkit-text-size-adjust: 100%;
 }
@@ -808,7 +809,7 @@ code {
 }
 .article-inner {
   overflow: hidden;
-  border-top: 1px solid #dadde1;
+  border: 1px solid #dadde1;
 }
 .article-banner {
   width: 100%;
