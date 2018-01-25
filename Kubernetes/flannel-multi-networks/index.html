@@ -5,18 +5,18 @@
     
     <title>flannel 多网络切换 | SchoIsles</title>
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-    <meta name="description" content="起因最近在部署一个实例数为 50 的业务时，在创建 Pod 进行到第 41 个时卡住了，查看 kubelet 日志发现是 CNI 调用失败，原因是当前节点的 flannel 没有可用的 IP 地址来分配了。     原理flannel 以 etcd 为元数据存储，在计算节点上启动 agent，从集群网络中申请一个子网，该节点可用的 IP 范围就跟子网大小有关了。     比如我们配置了集群网络为">
+    <meta name="description" content="起因最近部署一个实例数为 50 的业务时，在创建 Pod 进行到第 41 个时卡住了，查看 kubelet 日志发现是 CNI 调用失败，原因是当前节点的 flannel 没有可用的 IP 地址来分配了。     原理flannel 以 etcd 为元数据存储，在计算节点上启动 agent，从集群网络中申请一个子网，该节点可用的 IP 范围就跟子网大小有关了。     比如我们配置了集群网络为 1">
 <meta name="keywords" content="network,flannel">
 <meta property="og:type" content="article">
 <meta property="og:title" content="flannel 多网络切换">
 <meta property="og:url" content="http://blog.ziruqiren.com/Kubernetes/flannel-multi-networks/index.html">
 <meta property="og:site_name" content="SchoIsles">
-<meta property="og:description" content="起因最近在部署一个实例数为 50 的业务时，在创建 Pod 进行到第 41 个时卡住了，查看 kubelet 日志发现是 CNI 调用失败，原因是当前节点的 flannel 没有可用的 IP 地址来分配了。     原理flannel 以 etcd 为元数据存储，在计算节点上启动 agent，从集群网络中申请一个子网，该节点可用的 IP 范围就跟子网大小有关了。     比如我们配置了集群网络为">
+<meta property="og:description" content="起因最近部署一个实例数为 50 的业务时，在创建 Pod 进行到第 41 个时卡住了，查看 kubelet 日志发现是 CNI 调用失败，原因是当前节点的 flannel 没有可用的 IP 地址来分配了。     原理flannel 以 etcd 为元数据存储，在计算节点上启动 agent，从集群网络中申请一个子网，该节点可用的 IP 范围就跟子网大小有关了。     比如我们配置了集群网络为 1">
 <meta property="og:locale" content="zh-CN">
-<meta property="og:updated_time" content="2018-01-25T11:46:00.000Z">
+<meta property="og:updated_time" content="2018-01-25T12:27:35.000Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="flannel 多网络切换">
-<meta name="twitter:description" content="起因最近在部署一个实例数为 50 的业务时，在创建 Pod 进行到第 41 个时卡住了，查看 kubelet 日志发现是 CNI 调用失败，原因是当前节点的 flannel 没有可用的 IP 地址来分配了。     原理flannel 以 etcd 为元数据存储，在计算节点上启动 agent，从集群网络中申请一个子网，该节点可用的 IP 范围就跟子网大小有关了。     比如我们配置了集群网络为">
+<meta name="twitter:description" content="起因最近部署一个实例数为 50 的业务时，在创建 Pod 进行到第 41 个时卡住了，查看 kubelet 日志发现是 CNI 调用失败，原因是当前节点的 flannel 没有可用的 IP 地址来分配了。     原理flannel 以 etcd 为元数据存储，在计算节点上启动 agent，从集群网络中申请一个子网，该节点可用的 IP 范围就跟子网大小有关了。     比如我们配置了集群网络为 1">
     
 
     
@@ -230,10 +230,10 @@
         <div class="article-entry" itemprop="articleBody">
         
             
-            <h1 id="起因"><a href="#起因" class="headerlink" title="起因"></a>起因</h1><p>最近在部署一个实例数为 50 的业务时，在创建 Pod 进行到第 41 个时卡住了，查看 kubelet 日志发现是 CNI 调用失败，原因是当前节点的 flannel 没有可用的 IP 地址来分配了。    </p>
+            <h1 id="起因"><a href="#起因" class="headerlink" title="起因"></a>起因</h1><p>最近部署一个实例数为 50 的业务时，在创建 Pod 进行到第 41 个时卡住了，查看 kubelet 日志发现是 CNI 调用失败，原因是当前节点的 flannel 没有可用的 IP 地址来分配了。    </p>
 <h2 id="原理"><a href="#原理" class="headerlink" title="原理"></a>原理</h2><p>flannel 以 etcd 为元数据存储，在计算节点上启动 agent，从集群网络中申请一个子网，该节点可用的 IP 范围就跟子网大小有关了。    </p>
-<p>比如我们配置了集群网络为 10.1.0.0/16，子网掩码长度为27，agent（flanneld）申请到的子网类似 10.1.2.32/27 这样，可用 IP 仅仅为 30 个</p>
-<p>与 calico 的 agent 可以申请多个子网不同，flannel 一个 agent 只关联一个子网，agent 启动时从集群读取配置，写入本地文件，内容格式如下    </p>
+<p>比如我们配置了集群网络为 10.1.0.0/16，子网掩码长度为27，agent（flanneld）申请到的子网类似 10.1.2.32/27 这样，除去 vxlan 设备和 cni 网桥占用的两个，可用 IP 仅仅为 30 个</p>
+<p>与 calico 的 agent 可以申请多个子网不同，flannel 的 agent 同时只关联一个子网，agent 启动时从集群读取配置，写入本地文件，内容格式如下    </p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">% cat /var/run/flannel/subnet.env</span><br><span class="line">FLANNEL_NETWORK=10.1.0.0/16</span><br><span class="line">FLANNEL_SUBNET=10.1.2.32/27</span><br><span class="line">FLANNEL_MTU=1450</span><br><span class="line">FLANNEL_IPMASQ=<span class="literal">true</span></span><br></pre></td></tr></table></figure>
 <p>在生产环境中，单个节点只跑 30 个容器是巨大的浪费，尤其这些容器占用的 CPU、内存资源并不多，所以我们必须调整子网掩码长度</p>
 <h1 id="常规切换方法"><a href="#常规切换方法" class="headerlink" title="常规切换方法"></a>常规切换方法</h1><p><strong>重新设置 etcd 中 flannel 的配置</strong></p>
