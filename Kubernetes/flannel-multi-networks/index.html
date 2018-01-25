@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang=zh>
+<head>
+    <meta charset="utf-8">
+    
+    <title>flannel 多网络切换 | SchoIsles</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+    <meta name="description" content="起因最近在部署一个实例数为 50 的业务时，在创建 Pod 进行到第 41 个时卡住了，查看 kubelet 日志发现是 CNI 调用失败，原因是当前节点的 flannel 没有可用的 IP 地址来分配了。     原理flannel 以 etcd 为元数据存储，在计算节点上启动 agent，从集群网络中申请一个子网，该节点可用的 IP 范围就跟子网大小有关了。     比如我们配置了集群网络为">
+<meta name="keywords" content="network,flannel">
+<meta property="og:type" content="article">
+<meta property="og:title" content="flannel 多网络切换">
+<meta property="og:url" content="http://blog.ziruqiren.com/Kubernetes/flannel-multi-networks/index.html">
+<meta property="og:site_name" content="SchoIsles">
+<meta property="og:description" content="起因最近在部署一个实例数为 50 的业务时，在创建 Pod 进行到第 41 个时卡住了，查看 kubelet 日志发现是 CNI 调用失败，原因是当前节点的 flannel 没有可用的 IP 地址来分配了。     原理flannel 以 etcd 为元数据存储，在计算节点上启动 agent，从集群网络中申请一个子网，该节点可用的 IP 范围就跟子网大小有关了。     比如我们配置了集群网络为">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2018-01-25T11:46:00.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="flannel 多网络切换">
+<meta name="twitter:description" content="起因最近在部署一个实例数为 50 的业务时，在创建 Pod 进行到第 41 个时卡住了，查看 kubelet 日志发现是 CNI 调用失败，原因是当前节点的 flannel 没有可用的 IP 地址来分配了。     原理flannel 以 etcd 为元数据存储，在计算节点上启动 agent，从集群网络中申请一个子网，该节点可用的 IP 范围就跟子网大小有关了。     比如我们配置了集群网络为">
+    
+
+    
+        <link rel="alternate" href="/" title="SchoIsles" type="application/atom+xml" />
+    
+
+    
+        <link rel="icon" href="/css/images/favicon.png" />
+    
+
+    <link rel="stylesheet" href="/libs/font-awesome/css/font-awesome.min.css">
+    <link rel="stylesheet" href="/libs/open-sans/styles.css">
+    <link rel="stylesheet" href="/libs/source-code-pro/styles.css">
+
+    <link rel="stylesheet" href="/css/style.css">
+
+    <script src="/libs/jquery/2.1.3/jquery.min.js"></script>
+    
+    
+        <link rel="stylesheet" href="/libs/lightgallery/css/lightgallery.min.css">
+    
+    
+        <link rel="stylesheet" href="/libs/justified-gallery/justifiedGallery.min.css">
+    
+    
+    
+    
+
+
+</head>
+
+<body>
+    <div id="container">
+        <header id="header">
+    <div id="header-main" class="header-inner">
+        <div class="outer">
+            <a href="/" id="logo">
+                <i class="logo"></i>
+                <span class="site-title">SchoIsles</span>
+            </a>
+            <nav id="main-nav">
+                
+                    <a class="main-nav-link" href="/.">Home</a>
+                
+                    <a class="main-nav-link" href="/tags">Tags</a>
+                
+                    <a class="main-nav-link" href="/about">About</a>
+                
+            </nav>
+            
+                
+                <nav id="sub-nav">
+                    <div class="profile" id="profile-nav">
+                        <a id="profile-anchor" href="javascript:;">
+                            <img class="avatar" src="/css/images/site-avatar.png" />
+                            <i class="fa fa-caret-down"></i>
+                        </a>
+                    </div>
+                </nav>
+            
+            <div id="search-form-wrap">
+
+    <form class="search-form">
+        <input type="text" class="ins-search-input search-form-input" placeholder="搜索" />
+        <button type="submit" class="search-form-submit"></button>
+    </form>
+    <div class="ins-search">
+    <div class="ins-search-mask"></div>
+    <div class="ins-search-container">
+        <div class="ins-input-wrapper">
+            <input type="text" class="ins-search-input" placeholder="想要查找什么..." />
+            <span class="ins-close ins-selectable"><i class="fa fa-times-circle"></i></span>
+        </div>
+        <div class="ins-section-wrapper">
+            <div class="ins-section-container"></div>
+        </div>
+    </div>
+</div>
+<script>
+(function (window) {
+    var INSIGHT_CONFIG = {
+        TRANSLATION: {
+            POSTS: '文章',
+            PAGES: '页面',
+            CATEGORIES: '分类',
+            TAGS: '标签',
+            UNTITLED: '(未命名)',
+        },
+        ROOT_URL: '/',
+        CONTENT_URL: '/content.json',
+    };
+    window.INSIGHT_CONFIG = INSIGHT_CONFIG;
+})(window);
+</script>
+<script src="/js/insight.js"></script>
+
+</div>
+        </div>
+    </div>
+    <div id="main-nav-mobile" class="header-sub header-inner">
+        <table class="menu outer">
+            <tr>
+                
+                    <td><a class="main-nav-link" href="/.">Home</a></td>
+                
+                    <td><a class="main-nav-link" href="/tags">Tags</a></td>
+                
+                    <td><a class="main-nav-link" href="/about">About</a></td>
+                
+                <td>
+                    
+    <div class="search-form">
+        <input type="text" class="ins-search-input search-form-input" placeholder="搜索" />
+    </div>
+
+                </td>
+            </tr>
+        </table>
+    </div>
+</header>
+
+        <div class="outer">
+            
+                
+
+<aside id="profile">
+    <div class="inner profile-inner">
+        <div class="base-info profile-block">
+            <img id="avatar" src="/css/images/site-avatar.png" />
+            <h2 id="name">SchoIsles</h2>
+            <h3 id="title">DevOps</h3>
+            <span id="location"><i class="fa fa-map-marker"></i>Beijing, China</span>
+        </div>
+        <div class="article-info profile-block">
+            <div class="article-info-block">
+                4
+                <span>文章</span>
+            </div>
+            <div class="article-info-block">
+                3
+                <span>标签</span>
+            </div>
+        </div>
+        
+        <div class="profile-block social-links">
+            <table>
+                <tr>
+                    
+                    
+                    <td>
+                        <a href="http://github.com/SchoIsles" target="_blank" title="github" class=tooltip>
+                            <i class="fa fa-github"></i>
+                        </a>
+                    </td>
+                    
+                    <td>
+                        <a href="/" target="_blank" title="rss" class=tooltip>
+                            <i class="fa fa-rss"></i>
+                        </a>
+                    </td>
+                    
+                </tr>
+            </table>
+        </div>
+        
+    </div>
+                
+</aside>
+
+            
+            <section id="main"><article id="post-flannel-multi-networks" class="article article-type-post" itemscope itemprop="blogPost">
+    <div class="article-inner">
+        
+        
+            <header class="article-header">
+                
+    
+        <h1 class="article-title" itemprop="name">
+            flannel 多网络切换
+        </h1>
+    
+
+                
+                    <div class="article-meta">
+                        
+    <div class="article-date">
+        <i class="fa fa-calendar"></i>
+        <a href="/Kubernetes/flannel-multi-networks/">
+            <time datetime="2018-01-25T09:20:12.000Z" itemprop="datePublished">2018-01-25</time>
+        </a>
+    </div>
+
+
+                        
+    <div class="article-category">
+    	<i class="fa fa-folder"></i>
+        <a class="article-category-link" href="/categories/Kubernetes/">Kubernetes</a>
+    </div>
+
+                        
+    <div class="article-tag">
+        <i class="fa fa-tag"></i>
+        <a class="tag-link" href="/tags/flannel/">flannel</a>, <a class="tag-link" href="/tags/network/">network</a>
+    </div>
+
+                    </div>
+                
+            </header>
+        
+        
+        <div class="article-entry" itemprop="articleBody">
+        
+            
+            <h1 id="起因"><a href="#起因" class="headerlink" title="起因"></a>起因</h1><p>最近在部署一个实例数为 50 的业务时，在创建 Pod 进行到第 41 个时卡住了，查看 kubelet 日志发现是 CNI 调用失败，原因是当前节点的 flannel 没有可用的 IP 地址来分配了。    </p>
+<h2 id="原理"><a href="#原理" class="headerlink" title="原理"></a>原理</h2><p>flannel 以 etcd 为元数据存储，在计算节点上启动 agent，从集群网络中申请一个子网，该节点可用的 IP 范围就跟子网大小有关了。    </p>
+<p>比如我们配置了集群网络为 10.1.0.0/16，子网掩码长度为27，agent（flanneld）申请到的子网类似 10.1.2.32/27 这样，可用 IP 仅仅为 30 个</p>
+<p>与 calico 的 agent 可以申请多个子网不同，flannel 一个 agent 只关联一个子网，agent 启动时从集群读取配置，写入本地文件，内容格式如下    </p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">% cat /var/run/flannel/subnet.env</span><br><span class="line">FLANNEL_NETWORK=10.1.0.0/16</span><br><span class="line">FLANNEL_SUBNET=10.1.2.32/27</span><br><span class="line">FLANNEL_MTU=1450</span><br><span class="line">FLANNEL_IPMASQ=<span class="literal">true</span></span><br></pre></td></tr></table></figure>
+<p>在生产环境中，单个节点只跑 30 个容器是巨大的浪费，尤其这些容器占用的 CPU、内存资源并不多，所以我们必须调整子网掩码长度</p>
+<h1 id="常规切换方法"><a href="#常规切换方法" class="headerlink" title="常规切换方法"></a>常规切换方法</h1><p><strong>重新设置 etcd 中 flannel 的配置</strong></p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">% etcdctl get /coreos.com/network/config</span><br><span class="line">&#123;<span class="string">"Network"</span>:<span class="string">"10.1.0.0/16"</span>, <span class="string">"SubnetLen"</span>: 27, <span class="string">"Backend"</span>: &#123;<span class="string">"Type"</span>: <span class="string">"vxlan"</span>&#125;&#125;</span><br></pre></td></tr></table></figure>
+<p>可以执行<code>set</code>操作重写 config，将 SubnetLen 调为合适的值</p>
+<p>修改完成后重启 flanneld，将分配新的子网，过程中必定会发生网络中断，因此在重启 flanneld 前，需从 kubernetes 集群下线该节点，让 Pod 主动迁移到其它节点</p>
+<h2 id="为什么会造成中断呢？"><a href="#为什么会造成中断呢？" class="headerlink" title="为什么会造成中断呢？"></a>为什么会造成中断呢？</h2><p>首先 flanneld 必须重启后才能设置新的子网    </p>
+<ul>
+<li>第一次重启时发现 etcd 里此节点关联了旧的子网，将删除此子网后退出。</li>
+<li>第二次启动时申请并设置新的子网。</li>
+</ul>
+<p>而其它节点 flanneld 通过 watch etcd 发现一个子网被删后，会更改本地 vxlan 策略或路由规则，到该节点旧子网的请求将不可达，直到该节点的 flanneld 第二次重启成功。    </p>
+<p>考虑到直接更改子网掩码长度必然会导致网络中断，或者 Pod 迁移，所以有了下面的平滑切换方案。<br><a id="more"></a></p>
+<h1 id="平滑切换"><a href="#平滑切换" class="headerlink" title="平滑切换"></a>平滑切换</h1><p>最理想的方案是，创建新的 flannel 网络，新创建的 Pod 使用新的 IP，旧的 Pod 继续工作，直到被销毁。</p>
+<p>Service LB 层需同时支持到新旧两个网络的转发。</p>
+<p>我们知道，flannel 的数据存储在 etcd 集群，但是路径是能够自己指定的，默认情况下使用的是 <code>/coreos.com/network</code>    </p>
+<p>所以，可以在 flanneld 的启动参数里可以修改主路径，来使用新的网络配置</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">flanneld -etcd-prefix=&lt;/prefix/to/new&gt;</span><br></pre></td></tr></table></figure>
+<p>在配置新的 flannel network 时，有几个要注意的地方</p>
+<h2 id="UDP端口修改"><a href="#UDP端口修改" class="headerlink" title="UDP端口修改"></a>UDP端口修改</h2><p>当 flannel 传输模式设置为 vxlan 时，将封包后使用 udp 协议发往目标主机，默认情况下，此端口为 8472，由内核模块 vxlan 启动监听，flanneld 的退出不会影响主机间的数据交换。</p>
+<p>创建新的 flannel 网络时，可以修改 udp 传输端口。更换新配置路径的 flanneld 在启动后，vxlan 模块将监听新的 udp 端口，但旧的端口监听仍在工作，因此来自旧的 flannel 网络的包仍然能正常封包解包。</p>
+<blockquote>
+<p>如果创建新的 flannel network 时未定义新的端口，和旧的 flannel network 共用了默认端口，会是什么样的结果？经测试，来自两个网络的包可以正常发送给相应的 vxlan 设备。</p>
+</blockquote>
+<h2 id="vxlan设备ID修改"><a href="#vxlan设备ID修改" class="headerlink" title="vxlan设备ID修改"></a>vxlan设备ID修改</h2><p>flanneld 会生成一块 vxlan 设备，配置其 ip 以及 路由，来处理与其子网相关的网络请求，一般看到的设备名为 flannel.1，这跟 etcd 里的主配置相关，vxlan 属性 VNI 默认为1</p>
+<p>想要在同一台主机启动 2 个 flanneld，需保证 VNI 不冲突，否则后起的 flanneld 会重写设备 ip，导致前一个 flannel 网络不可用</p>
+<p>在 Service LB 节点启动两个 flanneld，建立 2 个 vxlan 设备 flannel.1 和 flannel.2，互不干扰</p>
+<h2 id="CNI设备ID修改"><a href="#CNI设备ID修改" class="headerlink" title="CNI设备ID修改"></a>CNI设备ID修改</h2><p>kubernetes 通过调用网络插件来给容器设置网络</p>
+<p>首先 flanneld 申请到子网后，会写配置到 /run/flannel/subnet.env</p>
+<p>flannel cni 插件读取配置 /run/flannel/subnet.env，来获取网络、子网、MTU等参数，创建网桥，默认名 cni0，分别绑定 veth pair 到容器以及bridge</p>
+<p>创建新的 flannel 网络后，势必需要创建新的网桥，新启动的 Pod 将接入到新的网桥，即新的 flannel 网络。</p>
+<h2 id="性能优化"><a href="#性能优化" class="headerlink" title="性能优化"></a>性能优化</h2><p>flannel 支持 udp、vxlan、host-gw 三种方式在节点间传输数据</p>
+<ul>
+<li><p>udp 模式可靠性、性能都不强，适合用来做测试</p>
+</li>
+<li><p>vxlan 模式，只要宿主机 IP 互相可达，即可使用，但性能一般</p>
+</li>
+<li><p>host-gw 模式，学习了 calico 的主机路由，性能最好，但需要所有节点在同一个物理子网内    </p>
+</li>
+</ul>
+<p>现在 0.9.0 版本的 vxlan 模式，支持参数 DirectRouting。如果要路由的目标宿主机和自己是同一个物理子网，不再做 vxlan 封包，直接通过主机路由出去。</p>
+<p>比如有4个节点</p>
+<table>
+<thead>
+<tr>
+<th>名称</th>
+<th>宿主机IP</th>
+<th>flannel subnet</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A</td>
+<td>172.16.0.1/24</td>
+<td>10.1.2.0/25</td>
+</tr>
+<tr>
+<td>B</td>
+<td>172.16.0.2/24</td>
+<td>10.1.8.128/25</td>
+</tr>
+<tr>
+<td>C</td>
+<td>172.16.8.1/24</td>
+<td>10.1.2.128/25</td>
+</tr>
+<tr>
+<td>D</td>
+<td>172.16.8.2/24</td>
+<td>10.1.4.0/25</td>
+</tr>
+</tbody>
+</table>
+<p>对于节点 A 来说，节点 B 和自己是二层直达的，节点 B 的 flannel subnet 通过主机路由走即可.<br>节点 A 会在本机添加路由</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">route add -net 10.1.8.128 netmask 255.255.255.128 gw 172.16.0.2</span><br></pre></td></tr></table></figure>
+<p>而去往 10.1.2.128/25 和 10.1.4.0/25 的，由于其宿主机的 IP 属于另一个网络，无法作为gateway，只能通过 udp 封包传输</p>
+<h2 id="切换步骤"><a href="#切换步骤" class="headerlink" title="切换步骤"></a>切换步骤</h2><h3 id="禁止-arp-老化"><a href="#禁止-arp-老化" class="headerlink" title="禁止 arp 老化"></a>禁止 arp 老化</h3><p>切换 flannel 网络后，旧的业务仍然能使用设备 flannel.1 与其它节点通讯。但是，当其它节点的 flanneld 停止后，本地记录的 arp 老化后无法更新，就无法将包发给该节点了。</p>
+<p>执行下面的命令，将 flannel.1 的 arp 老化时间设为 0</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">echo</span> 0 &gt; /proc/sys/net/ipv4/neigh/flannel.1/gc_stale_time</span><br></pre></td></tr></table></figure>
+<h3 id="创建新的-flannel-配置"><a href="#创建新的-flannel-配置" class="headerlink" title="创建新的 flannel 配置"></a>创建新的 flannel 配置</h3><p>定义 etcd 配置路径格式为 /flannel/network{id}</p>
+<p>本次以 2 为 id，即 /flannel/network2</p>
+<p>vxlan 设备 ID 设置为2，即 VNI = 2</p>
+<p>udp 端口自增，即 8473</p>
+<p>开启 DirectRouting</p>
+<p>设定网络为 192.168.0.0/16，子网掩码长度 26，即每个主机最多可分配 64 - 2 = 62 个 IP</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">etcdctl <span class="built_in">set</span> /flannel/network2/config <span class="string">'&#123;"Network":"192.168.0.0/16", "SubnetLen": 26, "Backend": &#123;"Type": "vxlan", "DirectRouting": true, "VNI": 2, "Port": 8473&#125;&#125;'</span></span><br></pre></td></tr></table></figure>
+<h3 id="下载新版-flanneld"><a href="#下载新版-flanneld" class="headerlink" title="下载新版 flanneld"></a>下载新版 flanneld</h3><p>所有 flannel 节点</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">curl http://metadata.svc.17paipai.cn/k8s/flanneld-v0.9.1 -o /opt/bin/flanneld-v0.9.1</span><br><span class="line">chmod +x /opt/bin/flanneld-v0.9.1</span><br></pre></td></tr></table></figure>
+<h3 id="Service-LB节点启动新的-flanneld-实例"><a href="#Service-LB节点启动新的-flanneld-实例" class="headerlink" title="Service LB节点启动新的 flanneld 实例"></a>Service LB节点启动新的 flanneld 实例</h3><h4 id="复制systemd配置"><a href="#复制systemd配置" class="headerlink" title="复制systemd配置"></a>复制systemd配置</h4><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">cp /lib/systemd/system/flanneld.service /lib/systemd/system/flanneld2.service</span><br></pre></td></tr></table></figure>
+<h4 id="更改配置，调整启动参数，"><a href="#更改配置，调整启动参数，" class="headerlink" title="更改配置，调整启动参数，"></a>更改配置，调整启动参数，</h4><p><code>-subnet-file /run/flannel/subnet2.env -etcd-prefix=/flannel/network2</code></p>
+<h4 id="修改以使用指定的-flanneld-版本"><a href="#修改以使用指定的-flanneld-版本" class="headerlink" title="修改以使用指定的 flanneld 版本"></a>修改以使用指定的 flanneld 版本</h4><h4 id="启动"><a href="#启动" class="headerlink" title="启动"></a>启动</h4><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">systemctl start flanneld2</span><br></pre></td></tr></table></figure>
+<p>####检查</p>
+<ul>
+<li><p>监听了 udp 端口 <code>8472 8473</code></p>
+</li>
+<li><p><code>ip link</code>列表有 <code>flannel.1</code> <code>flannel.2</code></p>
+</li>
+<li><p>路由表，防火墙规则都有添加</p>
+</li>
+<li><p>检查网络互通是否正常</p>
+</li>
+</ul>
+<p><strong>记得在切换完毕后将 flanneld2 设置为开机启动</strong></p>
+<h3 id="计算节点切换"><a href="#计算节点切换" class="headerlink" title="计算节点切换"></a>计算节点切换</h3><h4 id="暂停-kubernetes-调度"><a href="#暂停-kubernetes-调度" class="headerlink" title="暂停 kubernetes 调度"></a>暂停 kubernetes 调度</h4><p>避免节点切换网络过程中，创建的新 Pod 失败</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl cordon &lt;node&gt;</span><br></pre></td></tr></table></figure>
+<h4 id="更改-flanneld-配置"><a href="#更改-flanneld-配置" class="headerlink" title="更改 flanneld 配置"></a>更改 flanneld 配置</h4><p>编辑 <code>/lib/systemd/system/flanneld.service</code></p>
+<p>修改 <code>etcd-prefix=/flannel/network2</code></p>
+<blockquote>
+<p>与 service LB 节点上启动两个 flanneld 不同，计算节点只需启动一个，并且覆盖默认的本地配置文件 /run/flannel/subnet.env，供 cni 插件使用</p>
+</blockquote>
+<h4 id="重启"><a href="#重启" class="headerlink" title="重启"></a>重启</h4><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">systemctl daemon-reload</span><br><span class="line">systemctl restart flanneld</span><br></pre></td></tr></table></figure>
+<h4 id="检查"><a href="#检查" class="headerlink" title="检查"></a>检查</h4><ul>
+<li>监听了 <code>8472 8473</code> 端口</li>
+<li><code>ip link</code> 有 <code>flannel.1</code> <code>flannel.2</code> 两设备</li>
+</ul>
+<h4 id="更改-cni-配置"><a href="#更改-cni-配置" class="headerlink" title="更改 cni 配置"></a>更改 cni 配置</h4><p>编辑 <code>/etc/cni/net.d/10-flannel.conf</code>，设置 bridge 名称为 cni2</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">  <span class="attr">"name"</span>: <span class="string">"flannel"</span>,</span><br><span class="line">  <span class="attr">"type"</span>: <span class="string">"flannel"</span>,</span><br><span class="line">  <span class="attr">"delegate"</span>: &#123;</span><br><span class="line">      <span class="attr">"isDefaultGateway"</span>: <span class="literal">true</span>,</span><br><span class="line">      <span class="attr">"bridge"</span>: <span class="string">"cni2"</span></span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h4 id="开启-kubernetes-调度"><a href="#开启-kubernetes-调度" class="headerlink" title="开启 kubernetes 调度"></a>开启 kubernetes 调度</h4><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl uncordon &lt;node&gt;</span><br></pre></td></tr></table></figure>
+<h3 id="结语"><a href="#结语" class="headerlink" title="结语"></a>结语</h3><p>如此一来，计算节点上新创建的 Pod 会使用新的新的 flannel 网络进行通讯，之前创建的 Pod 可以继续使用旧的 flannel 网络，当这些旧的 Pod 全部销毁后，旧的设备 <code>flannel.1</code> 和 <code>cni0</code> 都可以删除了，还有 iptables nat 表里的规则。    </p>
+<p>或者当节点重启后，flanneld 启动后只创建新的网络，Pod 也只会属于新的网络，旧的网络不再需要关心。</p>
+<p>当全部计算节点销毁了旧的 Pod 后，Service LB 层的旧 flanneld 进程就可以退出了，与其关联的配置也可以清除了。</p>
+
+        
+        </div>
+        <footer class="article-footer">
+            <div class="share-container">
+
+
+
+</div>
+
+    <a data-url="http://blog.ziruqiren.com/Kubernetes/flannel-multi-networks/" data-id="cjcuafjuv000q3ankzzx8b927" class="article-share-link"><i class="fa fa-share"></i>分享到</a>
+<script>
+    (function ($) {
+        // Prevent duplicate binding
+        if (typeof(__SHARE_BUTTON_BINDED__) === 'undefined' || !__SHARE_BUTTON_BINDED__) {
+            __SHARE_BUTTON_BINDED__ = true;
+        } else {
+            return;
+        }
+        $('body').on('click', function() {
+            $('.article-share-box.on').removeClass('on');
+        }).on('click', '.article-share-link', function(e) {
+            e.stopPropagation();
+
+            var $this = $(this),
+                url = $this.attr('data-url'),
+                encodedUrl = encodeURIComponent(url),
+                id = 'article-share-box-' + $this.attr('data-id'),
+                offset = $this.offset(),
+                box;
+
+            if ($('#' + id).length) {
+                box = $('#' + id);
+
+                if (box.hasClass('on')){
+                    box.removeClass('on');
+                    return;
+                }
+            } else {
+                var html = [
+                    '<div id="' + id + '" class="article-share-box">',
+                        '<input class="article-share-input" value="' + url + '">',
+                        '<div class="article-share-links">',
+                            '<a href="https://twitter.com/intent/tweet?url=' + encodedUrl + '" class="fa fa-twitter article-share-twitter" target="_blank" title="Twitter"></a>',
+                            '<a href="https://www.facebook.com/sharer.php?u=' + encodedUrl + '" class="fa fa-facebook article-share-facebook" target="_blank" title="Facebook"></a>',
+                            '<a href="http://pinterest.com/pin/create/button/?url=' + encodedUrl + '" class="fa fa-pinterest article-share-pinterest" target="_blank" title="Pinterest"></a>',
+                            '<a href="https://plus.google.com/share?url=' + encodedUrl + '" class="fa fa-google article-share-google" target="_blank" title="Google+"></a>',
+                        '</div>',
+                    '</div>'
+                ].join('');
+
+              box = $(html);
+
+              $('body').append(box);
+            }
+
+            $('.article-share-box.on').hide();
+
+            box.css({
+                top: offset.top + 25,
+                left: offset.left
+            }).addClass('on');
+
+        }).on('click', '.article-share-box', function (e) {
+            e.stopPropagation();
+        }).on('click', '.article-share-box-input', function () {
+            $(this).select();
+        }).on('click', '.article-share-box-link', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            window.open(this.href, 'article-share-box-window-' + Date.now(), 'width=500,height=450');
+        });
+    })(jQuery);
+</script>
+
+            
+    
+        <a href="http://blog.ziruqiren.com/Kubernetes/flannel-multi-networks/#comments" class="article-comment-link disqus-comment-count" data-disqus-url="http://blog.ziruqiren.com/Kubernetes/flannel-multi-networks/">评论</a>
+    
+
+        </footer>
+    </div>
+    
+        
+<nav id="article-nav">
+    
+    
+        <a href="/Kubernetes/kubernetes-app-graceful-update/" id="article-nav-older" class="article-nav-link-wrap">
+            <strong class="article-nav-caption">下一篇</strong>
+            <div class="article-nav-title">kubernetes 业务平滑升级</div>
+        </a>
+    
+</nav>
+
+
+    
+</article>
+
+
+    
+    
+        <section id="comments">
+    <div id="disqus_thread">
+        <noscript>Please enable JavaScript to view the <a href="//disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+    </div>
+</section>
+    
+
+</section>
+        </div>
+        <footer id="footer">
+    <div class="outer">
+        <div id="footer-info" class="inner">
+            &copy; 2018 SchoIsles<br>
+            Powered by <a href="http://hexo.io/" target="_blank">Hexo</a>. Theme by <a href="https://github.com/SchoIsles/hexo-theme-icarus">icarus</a>
+        </div>
+    </div>
+    
+<script>
+var _hmt = _hmt || [];
+(function() {
+  var hm = document.createElement("script");
+  hm.src = "https://hm.baidu.com/hm.js?3b61426625c27dbdc352c0b9c37ea247";
+  var s = document.getElementsByTagName("script")[0]; 
+  s.parentNode.insertBefore(hm, s);
+})();
+</script>
+    
+    
+<!-- Global site tag (gtag.js) - Google Analytics -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-112738033-1"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'UA-112738033-1');
+</script>
+    
+</footer>
+
+        
+    
+    <script>
+    var disqus_config = function () {
+        
+            this.page.url = 'http://blog.ziruqiren.com/Kubernetes/flannel-multi-networks/';
+        
+        this.page.identifier = 'flannel-multi-networks';
+    };
+    (function() { 
+        var d = document, s = d.createElement('script');  
+        s.src = '//' + 'schoisles' + '.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', +new Date());
+        (d.head || d.body).appendChild(s);
+    })();
+</script>
+
+
+
+
+    
+        <script src="/libs/lightgallery/js/lightgallery.min.js"></script>
+        <script src="/libs/lightgallery/js/lg-thumbnail.min.js"></script>
+        <script src="/libs/lightgallery/js/lg-pager.min.js"></script>
+        <script src="/libs/lightgallery/js/lg-autoplay.min.js"></script>
+        <script src="/libs/lightgallery/js/lg-fullscreen.min.js"></script>
+        <script src="/libs/lightgallery/js/lg-zoom.min.js"></script>
+        <script src="/libs/lightgallery/js/lg-hash.min.js"></script>
+        <script src="/libs/lightgallery/js/lg-share.min.js"></script>
+        <script src="/libs/lightgallery/js/lg-video.min.js"></script>
+    
+    
+        <script src="/libs/justified-gallery/jquery.justifiedGallery.min.js"></script>
+    
+    
+
+
+
+<!-- Custom Scripts -->
+<script src="/js/main.js"></script>
+
+    </div>
+</body>
+</html>

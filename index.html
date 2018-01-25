@@ -147,11 +147,11 @@
         </div>
         <div class="article-info profile-block">
             <div class="article-info-block">
-                3
+                4
                 <span>文章</span>
             </div>
             <div class="article-info-block">
-                1
+                3
                 <span>标签</span>
             </div>
         </div>
@@ -183,6 +183,155 @@
 
             
             <section id="main">
+    <article id="post-flannel-multi-networks" class="article article-type-post" itemscope itemprop="blogPost">
+    <div class="article-inner">
+        
+        
+            <header class="article-header">
+                
+    
+        <h1 itemprop="name">
+            <a class="article-title" href="/Kubernetes/flannel-multi-networks/">flannel 多网络切换</a>
+        </h1>
+    
+
+                
+                    <div class="article-meta">
+                        
+    <div class="article-date">
+        <i class="fa fa-calendar"></i>
+        <a href="/Kubernetes/flannel-multi-networks/">
+            <time datetime="2018-01-25T09:20:12.000Z" itemprop="datePublished">2018-01-25</time>
+        </a>
+    </div>
+
+
+                        
+    <div class="article-category">
+    	<i class="fa fa-folder"></i>
+        <a class="article-category-link" href="/categories/Kubernetes/">Kubernetes</a>
+    </div>
+
+                        
+    <div class="article-tag">
+        <i class="fa fa-tag"></i>
+        <a class="tag-link" href="/tags/flannel/">flannel</a>, <a class="tag-link" href="/tags/network/">network</a>
+    </div>
+
+                    </div>
+                
+            </header>
+        
+        
+        <div class="article-entry" itemprop="articleBody">
+        
+            <p><h1 id="起因"><a href="#起因" class="headerlink" title="起因"></a>起因</h1><p>最近在部署一个实例数为 50 的业务时，在创建 Pod 进行到第 41 个时卡住了，查看 kubelet 日志发现是 CNI 调用失败，原因是当前节点的 flannel 没有可用的 IP 地址来分配了。    </p>
+<h2 id="原理"><a href="#原理" class="headerlink" title="原理"></a>原理</h2><p>flannel 以 etcd 为元数据存储，在计算节点上启动 agent，从集群网络中申请一个子网，该节点可用的 IP 范围就跟子网大小有关了。    </p>
+<p>比如我们配置了集群网络为 10.1.0.0/16，子网掩码长度为27，agent（flanneld）申请到的子网类似 10.1.2.32/27 这样，可用 IP 仅仅为 30 个</p>
+<p>与 calico 的 agent 可以申请多个子网不同，flannel 一个 agent 只关联一个子网，agent 启动时从集群读取配置，写入本地文件，内容格式如下    </p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">% cat /var/run/flannel/subnet.env</span><br><span class="line">FLANNEL_NETWORK=10.1.0.0/16</span><br><span class="line">FLANNEL_SUBNET=10.1.2.32/27</span><br><span class="line">FLANNEL_MTU=1450</span><br><span class="line">FLANNEL_IPMASQ=<span class="literal">true</span></span><br></pre></td></tr></table></figure>
+<p>在生产环境中，单个节点只跑 30 个容器是巨大的浪费，尤其这些容器占用的 CPU、内存资源并不多，所以我们必须调整子网掩码长度</p>
+<h1 id="常规切换方法"><a href="#常规切换方法" class="headerlink" title="常规切换方法"></a>常规切换方法</h1><p><strong>重新设置 etcd 中 flannel 的配置</strong></p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">% etcdctl get /coreos.com/network/config</span><br><span class="line">&#123;<span class="string">"Network"</span>:<span class="string">"10.1.0.0/16"</span>, <span class="string">"SubnetLen"</span>: 27, <span class="string">"Backend"</span>: &#123;<span class="string">"Type"</span>: <span class="string">"vxlan"</span>&#125;&#125;</span><br></pre></td></tr></table></figure>
+<p>可以执行<code>set</code>操作重写 config，将 SubnetLen 调为合适的值</p>
+<p>修改完成后重启 flanneld，将分配新的子网，过程中必定会发生网络中断，因此在重启 flanneld 前，需从 kubernetes 集群下线该节点，让 Pod 主动迁移到其它节点</p>
+<h2 id="为什么会造成中断呢？"><a href="#为什么会造成中断呢？" class="headerlink" title="为什么会造成中断呢？"></a>为什么会造成中断呢？</h2><p>首先 flanneld 必须重启后才能设置新的子网    </p>
+<ul>
+<li>第一次重启时发现 etcd 里此节点关联了旧的子网，将删除此子网后退出。</li>
+<li>第二次启动时申请并设置新的子网。</li>
+</ul>
+<p>而其它节点 flanneld 通过 watch etcd 发现一个子网被删后，会更改本地 vxlan 策略或路由规则，到该节点旧子网的请求将不可达，直到该节点的 flanneld 第二次重启成功。    </p>
+<p>考虑到直接更改子网掩码长度必然会导致网络中断，或者 Pod 迁移，所以有了下面的平滑切换方案。<br></p>
+            <p class="article-more-link">
+                <a href="/Kubernetes/flannel-multi-networks/#more">查看更多</a>
+            </p>
+        
+        </div>
+        <footer class="article-footer">
+            <div class="share-container">
+
+
+
+</div>
+
+    <a data-url="http://blog.ziruqiren.com/Kubernetes/flannel-multi-networks/" data-id="cjcuafjuv000q3ankzzx8b927" class="article-share-link"><i class="fa fa-share"></i>分享到</a>
+<script>
+    (function ($) {
+        // Prevent duplicate binding
+        if (typeof(__SHARE_BUTTON_BINDED__) === 'undefined' || !__SHARE_BUTTON_BINDED__) {
+            __SHARE_BUTTON_BINDED__ = true;
+        } else {
+            return;
+        }
+        $('body').on('click', function() {
+            $('.article-share-box.on').removeClass('on');
+        }).on('click', '.article-share-link', function(e) {
+            e.stopPropagation();
+
+            var $this = $(this),
+                url = $this.attr('data-url'),
+                encodedUrl = encodeURIComponent(url),
+                id = 'article-share-box-' + $this.attr('data-id'),
+                offset = $this.offset(),
+                box;
+
+            if ($('#' + id).length) {
+                box = $('#' + id);
+
+                if (box.hasClass('on')){
+                    box.removeClass('on');
+                    return;
+                }
+            } else {
+                var html = [
+                    '<div id="' + id + '" class="article-share-box">',
+                        '<input class="article-share-input" value="' + url + '">',
+                        '<div class="article-share-links">',
+                            '<a href="https://twitter.com/intent/tweet?url=' + encodedUrl + '" class="fa fa-twitter article-share-twitter" target="_blank" title="Twitter"></a>',
+                            '<a href="https://www.facebook.com/sharer.php?u=' + encodedUrl + '" class="fa fa-facebook article-share-facebook" target="_blank" title="Facebook"></a>',
+                            '<a href="http://pinterest.com/pin/create/button/?url=' + encodedUrl + '" class="fa fa-pinterest article-share-pinterest" target="_blank" title="Pinterest"></a>',
+                            '<a href="https://plus.google.com/share?url=' + encodedUrl + '" class="fa fa-google article-share-google" target="_blank" title="Google+"></a>',
+                        '</div>',
+                    '</div>'
+                ].join('');
+
+              box = $(html);
+
+              $('body').append(box);
+            }
+
+            $('.article-share-box.on').hide();
+
+            box.css({
+                top: offset.top + 25,
+                left: offset.left
+            }).addClass('on');
+
+        }).on('click', '.article-share-box', function (e) {
+            e.stopPropagation();
+        }).on('click', '.article-share-box-input', function () {
+            $(this).select();
+        }).on('click', '.article-share-box-link', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            window.open(this.href, 'article-share-box-window-' + Date.now(), 'width=500,height=450');
+        });
+    })(jQuery);
+</script>
+
+            
+    
+        <a href="http://blog.ziruqiren.com/Kubernetes/flannel-multi-networks/#comments" class="article-comment-link disqus-comment-count" data-disqus-url="http://blog.ziruqiren.com/Kubernetes/flannel-multi-networks/">评论</a>
+    
+
+        </footer>
+    </div>
+    
+</article>
+
+
+
     <article id="post-kubernetes-app-graceful-update" class="article article-type-post" itemscope itemprop="blogPost">
     <div class="article-inner">
         
@@ -258,7 +407,7 @@
 
 </div>
 
-    <a data-url="http://blog.ziruqiren.com/Kubernetes/kubernetes-app-graceful-update/" data-id="cjcu3gjhc000fucnkimyf74k2" class="article-share-link"><i class="fa fa-share"></i>分享到</a>
+    <a data-url="http://blog.ziruqiren.com/Kubernetes/kubernetes-app-graceful-update/" data-id="cjcsq6t6y00043ankc4av7jh9" class="article-share-link"><i class="fa fa-share"></i>分享到</a>
 <script>
     (function ($) {
         // Prevent duplicate binding
@@ -396,7 +545,7 @@
 
 </div>
 
-    <a data-url="http://blog.ziruqiren.com/lvs/toa-kernel-module/" data-id="cjcu3gjgr0004ucnkxkd76zlf" class="article-share-link"><i class="fa fa-share"></i>分享到</a>
+    <a data-url="http://blog.ziruqiren.com/lvs/toa-kernel-module/" data-id="cjcsq6t7j000h3ankev5s7cu7" class="article-share-link"><i class="fa fa-share"></i>分享到</a>
 <script>
     (function ($) {
         // Prevent duplicate binding
@@ -530,7 +679,7 @@
 
 </div>
 
-    <a data-url="http://blog.ziruqiren.com/转载/character-difference/" data-id="cjcu3gjhe000gucnk8wqy2l4v" class="article-share-link"><i class="fa fa-share"></i>分享到</a>
+    <a data-url="http://blog.ziruqiren.com/转载/character-difference/" data-id="cjcsq8iko000k3ank3zhvemf7" class="article-share-link"><i class="fa fa-share"></i>分享到</a>
 <script>
     (function ($) {
         // Prevent duplicate binding
