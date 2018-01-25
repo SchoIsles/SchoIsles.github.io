@@ -957,7 +957,7 @@ a.article-title:hover {
   position: static;
   font-family: Georgia, "Times New Roman", "Microsoft Yahei", serif;
   font-size: 1.1em;
-  margin: 0 -20px;
+  margin: 10px -1px 0px;
   padding: 10px 20px 10px 54px;
   background: #fcfcfc;
   border-left: 4px solid #eee;
